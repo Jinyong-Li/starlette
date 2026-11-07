@@ -26,14 +26,16 @@ from starlette.types import Message, Receive, Scope, Send
 from tests.types import TestClientFactory
 
 
-def test_text_response(test_client_factory: TestClientFactory) -> None:
+@pytest.mark.parametrize("media_type", ["text/plain", "Text/Plain", "TEXT/PLAIN"])
+def test_text_response(test_client_factory: TestClientFactory, media_type: str) -> None:
     async def app(scope: Scope, receive: Receive, send: Send) -> None:
-        response = Response("hello, world", media_type="text/plain")
+        response = Response("hello, world", media_type=media_type)
         await response(scope, receive, send)
 
     client = test_client_factory(app)
     response = client.get("/")
     assert response.text == "hello, world"
+    assert response.headers["content-type"] == f"{media_type}; charset=utf-8"
 
 
 def test_bytes_response(test_client_factory: TestClientFactory) -> None:
@@ -712,13 +714,12 @@ def test_non_empty_response(test_client_factory: TestClientFactory) -> None:
     assert response.headers["content-length"] == "2"
 
 
-def test_response_do_not_add_redundant_charset(
-    test_client_factory: TestClientFactory,
-) -> None:
-    app = Response(media_type="text/plain; charset=utf-8")
+@pytest.mark.parametrize("media_type", ["text/plain; charset=utf-8", "Text/Plain; Charset=UTF-8"])
+def test_response_do_not_add_redundant_charset(test_client_factory: TestClientFactory, media_type: str) -> None:
+    app = Response(media_type=media_type)
     client = test_client_factory(app)
     response = client.get("/")
-    assert response.headers["content-type"] == "text/plain; charset=utf-8"
+    assert response.headers["content-type"] == media_type
 
 
 def test_file_response_known_size(tmp_path: Path, test_client_factory: TestClientFactory) -> None:
